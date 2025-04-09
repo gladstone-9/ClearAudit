@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Auto Submit CSV Upload</title>
+</head>
+<body>
+  <h2>Upload a CSV File</h2>
+  <form id="uploadForm" action="/" method="POST" enctype="multipart/form-data">
+    <input type="file" name="csvFile" accept=".csv" required onchange="document.getElementById('uploadForm').submit();">
+  </form>
+</body>
+</html>
