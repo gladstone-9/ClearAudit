@@ -1,3 +1,6 @@
 migrations*
 __pycache__
 venv
+*/media/uploads/*
+dp.sqlite3
+examples/

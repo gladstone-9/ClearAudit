@@ -1,0 +1,106 @@
+/* main.css */
+body {
+  background-color: #f9fbfc;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Centering the form */
+.container-fluid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh; /* Take full height of the viewport */
+}
+
+/* Form container styling */
+.form-container {
+  text-align: center;
+  background-color: white;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.1); /* Adding a sleek shadow */
+  border: 1px solid #e0e0e0; /* Thin border around the form */
+  width: 100%;
+  max-width: 500px;
+}
+
+/* Make the progress bar fill the page width */
+.step-container {
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+  width: 100%;
+  max-width: 100%;
+  margin: 20px 0;
+}
+
+.progress-bar-wrapper {
+  display: flex;
+  width: 100%;
+}
+
+.progress-step {
+  position: relative;
+  flex: 1;  /* Make each step take equal space */
+  padding: 1rem;
+  background-color: #e5e7eb;
+  color: #374151;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  margin-right: 1px;
+  border-radius: 4px;
+}
+
+.progress-step:last-child {
+  margin-right: 0;
+}
+
+.progress-step.active {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+}
+
+/* File upload styling */
+.upload-container {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  margin-top: 20px;
+}
+
+.custom-file-input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #374151;
+  font-size: 14px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+  cursor: pointer;
+}
+
+.custom-file-input:focus {
+  border-color: #2563eb;
+  outline: none;
+}
+
+.custom-file-label {
+  position: absolute;
+  top: 50%;
+  left: 15px;
+  transform: translateY(-50%);
+  color: #6b7280;
+  font-size: 14px;
+  pointer-events: none;
+  transition: color 0.3s ease;
+}
+
+.custom-file-input:focus + .custom-file-label,
+.custom-file-input:not(:placeholder-shown) + .custom-file-label {
+  color: #734a38;
+}

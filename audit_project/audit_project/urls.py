@@ -19,8 +19,18 @@ from django.urls import path
 
 from audit_app.views import *
 
+from django.conf import settings
+from django.conf.urls.static import static
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("", PortalUploadView.as_view(), name="portal_upload"),
-    path("upload/", SuccessView.as_view(), name="portal_upload"),
+    path('explore/<int:file_id>/', ExploreStatisticsView.as_view(), name='explore_statistics'),
+    path('slider/', range_slider_view, name='range_slider'),
+    path('dp-data/', dp_histogram_data, name='dp_histogram_data'),
+    path('dp-sum-data/', dp_sum_data, name='dp_sum_data'),
+    path('pca-data/', pca_view, name='pca_data'),
+    path('simulate-attack/', simulate_attack_view, name='simulate_attack'),
 ]
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

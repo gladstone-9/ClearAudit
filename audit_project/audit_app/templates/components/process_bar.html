@@ -1,0 +1,11 @@
+<div class="container">
+    <div class="step-container shadow-sm">
+      <div class="process-bar-wrapper">
+        {% for step in steps %}
+          <div class="process-step {% if forloop.counter <= current_step %}active{% endif %}">
+            {{ step }}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>

@@ -1,0 +1,545 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Explore Statistics</title>
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- css file -->
+    <link href="{% static 'css/main.css' %}" rel="stylesheet">
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        .card {
+            background-color: #f8f9fa;
+            /* Light background color */
+            border: 1px solid #dee2e6;
+            /* Light border */
+        }
+
+        .card .form-group label {
+            font-weight: bold;
+        }
+
+        .custom-range {
+            width: 100%;
+        }
+
+        .card.shadow-lg {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .rounded {
+            border-radius: 15px;
+            /* Rounded corners for a modern look */
+        }
+
+        .text-center {
+            font-size: 1.5rem;
+            /* Slightly larger font size for the title */
+        }
+
+        .text-right {
+            font-size: 1.2rem;
+            /* For the displayed values to be a bit larger */
+        }
+
+        .mt-2 {
+            margin-top: 0.5rem;
+            /* Add a little space between the input and the value */
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Plotly -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+    <!-- Progress Bar -->
+    <div class="container">
+        <div class="step-container shadow-sm">
+            <div class="progress-bar-wrapper">
+                <a href="/" class="progress-step active">Upload Data Release</a>
+                <div class="progress-step active">Explore Statistics</div>
+                <div class="progress-step">Simulate Attacks</div>
+                <div class="progress-step">Generate Synthetic Data</div>
+                <div class="progress-step">Publish Data Release</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Divider -->
+    <hr
+        style="border: 0; height: 2px; background: linear-gradient(to right, #f0f0f0, #e0e0e0, #f0f0f0); margin: 30px 0;">
+
+    <!-- CSV File -->
+    {% if csv_data %}
+    <h2 style="font-family: 'Arial', sans-serif; color: #333; margin-bottom: 15px;">Data Preview</h2>
+
+    <div style="max-height: 400px; overflow-y: auto; border-radius: 8px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);">
+        <table style="width: 100%; border-collapse: collapse; background-color: #fff;">
+            <thead style="background-color: #f7f7f7; font-weight: bold; color: #333;">
+                <tr>
+                    {% for cell in csv_data.0 %}
+                    <th style="padding: 12px 15px; text-align: left; color: #555; border-bottom: 2px solid #e0e0e0;">
+                        {{ cell }}
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in csv_data|slice:":100" %}
+                <tr style="transition: background-color 0.3s;">
+                    {% for cell in row %}
+                    <td style="padding: 12px 15px; border-bottom: 1px solid #f0f0f0; color: #666; text-align: left;">
+                        {{ cell }}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="font-family: 'Arial', sans-serif; color: #666;">No data to display.</p>
+    {% endif %}
+
+    <!-- Divider -->
+    <hr
+        style="border: 0; height: 2px; background: linear-gradient(to right, #f0f0f0, #e0e0e0, #f0f0f0); margin: 30px 0;">
+
+    <!-- Parameter tuning -->
+    <div class="container mt-5">
+        <div class="row justify-content-right">
+            <div class="col-md-6">
+                <!-- Modern Styled Box (Card) -->
+                <div class="card shadow-lg p-4 rounded">
+                    <h2 class="text-center mb-4">Differential Privacy Parameters</h2>
+
+                    <!-- Epsilon Range Slider -->
+                    <div class="form-group">
+                        <label for="epsilon">Epsilon: Level of privacy.</label>
+                        <input type="range" class="custom-range" id="epsilon" name="epsilon" min="0.01" max="5"
+                            step="0.01" value="{{ epsilon|default:1 }}">
+                        <div class="text-right mt-2">
+                            <span id="epsilonValue">{{ epsilon|default:1 }}</span> <!-- Display value initially -->
+                        </div>
+                    </div>
+
+                    <!-- Divider -->
+                    <hr
+                        style="border: 0; height: 2px; background: linear-gradient(to right, #f0f0f0, #e0e0e0, #f0f0f0); margin: 30px 0;">
+
+                    <!-- Contributions Number Input -->
+                    <div class="form-group">
+                        <label for="contributions">Contributions: # of records a privacy unit may contribute to
+                            microdata.</label>
+                        <input type="number" class="form-control" id="contributions" name="contributions" min="0"
+                            max="100" step="1" value="{{ contributions|default:36 }}">
+                        <div class="text-right mt-2">
+                            <span id="contributionsValue"></span>
+                        </div>
+                    </div>
+
+                    <!-- Divider -->
+                    <hr
+                        style="border: 0; height: 2px; background: linear-gradient(to right, #f0f0f0, #e0e0e0, #f0f0f0); margin: 30px 0;">
+
+                    <!-- Max Bound Input -->
+                    <div class="form-group">
+                        <label for="max_bound">Max Bound: Maximum value for target column.</label>
+                        <input type="number" class="form-control" id="max_bound" name="max_bound" min="1"
+                            value="{{ max_bound|default:100000 }}">
+                    </div>
+
+
+                    <!-- Target Column Dropdown -->
+                    <div class="form-group">
+                        <label for="target_column">Target Column: Select the column to apply Differential
+                            Privacy.</label>
+                        <select class="form-control" id="target_column" name="target_column">
+                            {% for column in columns %}
+                            <option value="{{ column }}">{{ column }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Divider -->
+                    <hr
+                        style="border: 0; height: 2px; background: linear-gradient(to right, #f0f0f0, #e0e0e0, #f0f0f0); margin: 30px 0;">
+
+                    <button id="useParameters" class="btn btn-primary mt-4">Use Parameters</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Divider -->
+    <hr
+        style="border: 0; height: 2px; background: linear-gradient(to right, #f0f0f0, #e0e0e0, #f0f0f0); margin: 30px 0;">
+
+    <!-- Header -->
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col text-center">
+                <h2 style="
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    font-weight: 600;
+                    color: #343a40;
+                    border-bottom: 3px solid #28a745;
+                    display: inline-block;
+                    padding-bottom: 5px;
+                    margin-bottom: 30px;
+                ">
+                    General Statistics
+                </h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Count Plot -->
+    <div class="row justify-content-center mt-5">
+        <div class="col-md-8">
+            <div id="dpHistogram" style="height: 400px;"></div>
+        </div>
+    </div>
+
+    <!-- Sum Plot -->
+    <div class="row justify-content-center mt-5">
+        <div class="col-md-8">
+            <div id="dpSumPlot" style="height: 400px;"></div>
+        </div>
+    </div>
+
+    <!-- Divider -->
+    <hr
+        style="border: 0; height: 2px; background: linear-gradient(to right, #f0f0f0, #e0e0e0, #f0f0f0); margin: 30px 0;">
+
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col text-center">
+                <h2 style="
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    font-weight: 600;
+                    color: #343a40;
+                    border-bottom: 3px solid #28a745;
+                    display: inline-block;
+                    padding-bottom: 5px;
+                    margin-bottom: 30px;
+                ">
+                    Principal Component Analysis
+                </h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Divider -->
+    <hr
+        style="border: 0; height: 2px; background: linear-gradient(to right, #f0f0f0, #e0e0e0, #f0f0f0); margin: 30px 0;">
+
+    <!-- PCA Plot -->
+    <div id="pcaPlot"></div>
+
+
+    <!-- Bootstrap JS & jQuery (for dynamic display of slider values) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Custom JS for updating the slider and input values -->
+    <script>
+        let countAbortController = null;
+        let sumAbortController = null;
+        let pcaAbortController = null;
+
+        const fileId = "{{ file_id }}";
+
+        // Grab all elements once
+        const epsilonInput = document.getElementById("epsilon");
+        const epsilonValue = document.getElementById("epsilonValue");
+
+        const contributionsInput = document.getElementById("contributions");
+        const contributionsValue = document.getElementById("contributionsValue");
+
+        const maxBoundInput = document.getElementById("max_bound");
+        const targetColumnSelect = document.getElementById("target_column");
+
+        // Unified update function
+        function handleUpdate() {
+            const epsilon = parseFloat(epsilonInput.value);
+            const contributions = parseInt(contributionsInput.value);
+            const maxBound = parseFloat(maxBoundInput.value);
+            const targetColumn = targetColumnSelect.value;
+
+            // Display values next to inputs
+            epsilonValue.textContent = epsilon.toFixed(2);
+            contributionsValue.textContent = contributions;
+
+            // Optional AJAX call to Django (e.g., for internal logging or additional view updates)
+            $.ajax({
+                type: "GET",
+                url: "{% url 'range_slider' %}",  // Ensure this is defined in your Django URLs
+                data: {
+                    epsilon: epsilon,
+                    contributions: contributions
+                },
+                success: function (response) {
+                    // Optionally handle any returned content from the view
+                    // (Right now this isn't strictly necessary)
+                }
+            });
+
+            if (countAbortController) countAbortController.abort();
+            countAbortController = new AbortController();
+
+            // Count Fetch
+            fetch(`/dp-data/?epsilon=${epsilon}&contributions=${contributions}&file_id=${fileId}`, {
+                signal: countAbortController.signal
+            })
+                .then(response => response.json())
+                .then(data => {
+                    const dpCounts = data.dp_counts;
+                    const actualCount = data.actual_count;
+
+                    const trace = {
+                        x: dpCounts,
+                        type: 'histogram',
+                        marker: { color: 'skyblue', line: { color: 'black', width: 1 } },
+                        nbinsx: 50,
+                        name: 'DP Counts'
+                    };
+
+                    const actualCountTrace = {
+                        x: [actualCount, actualCount],
+                        y: [0, Math.max(...dpCounts.map(c => c || 0))],  // use max of DP counts as vertical extent
+                        mode: 'lines',
+                        line: {
+                            color: 'red',
+                            width: 2,
+                            dash: 'dash'
+                        },
+                        name: `Actual Count: ${actualCount}`,
+                        showlegend: true
+                    };
+
+                    const layout = {
+                        title: '# of Records (n=5000)',
+                        xaxis: { title: 'Count' },
+                        yaxis: { title: 'Frequency' },
+                        shapes: [{
+                            type: 'line',
+                            x0: actualCount,
+                            x1: actualCount,
+                            yref: 'paper',
+                            y0: 0,
+                            y1: 1,
+                            line: {
+                                color: 'red',
+                                width: 2,
+                                dash: 'dash'
+                            }
+                        }],
+                        annotations: [{
+                            x: actualCount,
+                            y: 1,
+                            yref: 'paper',
+                            text: 'Actual Count',
+                            showarrow: false,
+                            font: { color: 'red' }
+                        }]
+                    };
+
+                    Plotly.newPlot('dpHistogram', [trace, actualCountTrace], layout, { responsive: true });
+                })
+                .catch(error => {
+                    if (error.name !== 'AbortError') {
+                        console.error("Error fetching plot data:", error);
+                    }
+                    console.error("Error fetching plot data:", error);
+                });
+
+            // Sum Fetch
+            if (sumAbortController) sumAbortController.abort();
+            sumAbortController = new AbortController();
+
+            fetch(`/dp-sum-data/?epsilon=${epsilon}&contributions=${contributions}&file_id=${fileId}&max_bound=${maxBound}&target_column=${targetColumn}`, {
+                signal: sumAbortController.signal
+            })
+                .then(response => response.json())
+                .then(data => {
+                    const dpSums = data.dp_sums;
+                    const actualSum = data.actual_sum;
+
+                    const dpTrace = {
+                        x: dpSums,
+                        type: 'histogram',
+                        marker: { color: 'lightgreen', line: { color: 'black', width: 1 } },
+                        nbinsx: 50,
+                        name: 'DP Sums'
+                    };
+
+                    const actualSumTrace = {
+                        x: [actualSum, actualSum],
+                        y: [0, 1], // This gets scaled with yaxis later
+                        mode: 'lines',
+                        line: {
+                            color: 'green',
+                            width: 2,
+                            dash: 'dash'
+                        },
+                        name: `Actual Sum: ${actualSum.toFixed(2)}`,
+                        yaxis: 'y2',  // prevent auto-scaling interference
+                        showlegend: true
+                    };
+
+                    const layout = {
+                        title: `DP Sum of ${targetColumn} (n=5000)`,
+                        xaxis: { title: 'Sum' },
+                        yaxis: { title: 'Frequency' },
+                        yaxis2: {
+                            overlaying: 'y',
+                            visible: false  // Used for reference line only
+                        },
+                        legend: {
+                            orientation: 'h',
+                            x: 0.5,
+                            xanchor: 'center',
+                            y: -0.2
+                        }
+                    };
+
+                    Plotly.newPlot('dpSumPlot', [dpTrace, actualSumTrace], layout, { responsive: true });
+                })
+                .catch(error => {
+                    if (error.name !== 'AbortError') {
+                        console.error("Error fetching sum plot data:", error);
+                    }
+                    console.error("Error fetching sum plot data:", error);
+                });
+
+            // PCA Fetch
+            if (pcaAbortController) pcaAbortController.abort();
+            pcaAbortController = new AbortController();
+
+            fetch(`/pca-data/?epsilon=${epsilon}&file_id=${fileId}&column=${targetColumn}`, {
+                signal: pcaAbortController.signal
+            })
+                .then(response => response.json())
+                .then(data => {
+                    const np = data.non_private;
+                    const p = data.private;
+                    const labels = data.labels;
+
+                    const colorScale = labels.map(l => parseInt(l)); // Adjust as needed
+
+                    const traceNonPrivate = {
+                        x: np.map(point => point[0]),
+                        y: np.map(point => point[1]),
+                        mode: 'markers',
+                        type: 'scatter',
+                        marker: { color: colorScale, colorscale: 'Viridis' },
+                        name: 'Non-Private PCA', 
+                        showlegend: false
+                    };
+
+                    const tracePrivate = {
+                        x: p.map(point => point[0]),
+                        y: p.map(point => point[1]),
+                        mode: 'markers',
+                        type: 'scatter',
+                        marker: { color: colorScale, colorscale: 'Viridis' },
+                        name: `Private PCA (ε=${epsilon})`,
+                        showlegend: false
+                    };
+
+                    const layout = {
+                        grid: { rows: 1, columns: 2, pattern: 'independent' },
+                        annotations: [
+                            {
+                                text: "Non-Private PCA",
+                                font: { size: 16 },
+                                showarrow: false,
+                                x: 0.21,
+                                y: 1.05,
+                                xref: 'paper',
+                                yref: 'paper',
+                                xanchor: 'center',
+                                yanchor: 'bottom'
+                            },
+                            {
+                                text: `Private PCA (ε=${epsilon})`,
+                                font: { size: 16 },
+                                showarrow: false,
+                                x: 0.79,
+                                y: 1.05,
+                                xref: 'paper',
+                                yref: 'paper',
+                                xanchor: 'center',
+                                yanchor: 'bottom'
+                            }
+                        ],
+                        margin: { t: 80 },  // Add top margin for titles
+                    };
+
+                    Plotly.newPlot('pcaPlot', [
+                        { ...traceNonPrivate, xaxis: 'x1', yaxis: 'y1' },
+                        { ...tracePrivate, xaxis: 'x2', yaxis: 'y2' }
+                    ], {
+                        ...layout,
+                        xaxis: { title: 'PC1' },
+                        yaxis: { title: 'PC2' },
+                        xaxis2: { title: 'PC1', anchor: 'y2' },
+                        yaxis2: { title: 'PC2' }
+                    });
+                })
+                .catch(error => {
+                    if (error.name !== 'AbortError') {
+                        console.error("Error fetching PCA data:", error);
+                    }
+                    console.error("Error fetching PCA data:", error);
+                });
+        }
+
+        // Bind inputs to trigger updates
+        epsilonInput.addEventListener('input', handleUpdate);
+        contributionsInput.addEventListener('input', handleUpdate);
+        maxBoundInput.addEventListener('input', handleUpdate);
+        targetColumnSelect.addEventListener('input', handleUpdate);
+
+        // Initial load
+        handleUpdate();
+
+        // Confirm Parameters
+        document.getElementById('useParameters').addEventListener('click', function () {
+            // Use already captured values
+            const epsilon = parseFloat(epsilonInput.value);
+            const contributions = parseInt(contributionsInput.value);
+            const maxBound = parseFloat(maxBoundInput.value);
+            const targetColumn = targetColumnSelect.value;
+
+            // Create the URL for the new view with parameters for simulation attack
+            const simulateAttackUrl = `/simulate-attack/?file_id=${fileId}&epsilon=${epsilon}&contributions=${contributions}&max_bound=${maxBound}&target_column=${targetColumn}`;
+
+            // Redirect to the simulate attack view with the parameters
+            window.location.href = simulateAttackUrl;
+        });
+    </script>
+</body>
+
+</html>
