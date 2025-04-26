@@ -259,3 +259,41 @@ def pca_view(request):
         "labels": y.tolist()  # Fixed typo here
     })
 
+
+def synthetic_data_view(request):
+    # Get the parameters from the URL
+    epsilon = request.GET.get('epsilon')
+    contributions = request.GET.get('contributions')
+    max_bound = request.GET.get('max_bound')
+    target_column = request.GET.get('target_column')
+    file_id = request.GET.get('file_id')
+
+    # Process the parameters (add any processing logic you need here)
+
+    # Return the response, either rendering a template or returning data (e.g., JSON)
+    return render(request, 'generate_synthetic_data.html', {
+        'epsilon': epsilon,
+        'contributions': contributions,
+        'max_bound': max_bound,
+        'target_column': target_column,
+        'file_id': file_id,
+    })
+    
+def publish_data_release_view(request):
+        # Get the parameters from the URL
+    epsilon = request.GET.get('epsilon')
+    contributions = request.GET.get('contributions')
+    max_bound = request.GET.get('max_bound')
+    target_column = request.GET.get('target_column')
+    file_id = request.GET.get('file_id')
+
+    # Process the parameters (add any processing logic you need here)
+
+    # Return the response, either rendering a template or returning data (e.g., JSON)
+    return render(request, 'publish_data_release.html', {
+        'epsilon': epsilon,
+        'contributions': contributions,
+        'max_bound': max_bound,
+        'target_column': target_column,
+        'file_id': file_id,
+    })

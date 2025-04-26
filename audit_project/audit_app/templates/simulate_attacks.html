@@ -20,7 +20,10 @@
                 <a href="/" class="progress-step active">Upload Data Release</a>
                 <a href="/explore/{{ file_id }}" class="progress-step active">Explore Statistics</a>
                 <div class="progress-step active">Simulate Attacks</div>
-                <div class="progress-step">Generate Synthetic Data</div>
+                <a href="{% url 'generate_synthetic_data' %}?file_id={{ file_id }}&epsilon={{ epsilon }}&contributions={{ contributions }}&max_bound={{ max_bound }}&target_column={{ target_column }}" class="progress-step">
+                    Generate Synthetic Data
+                </a>
+                <!-- <div class="progress-step">Generate Synthetic Data</div> -->
                 <div class="progress-step">Publish Data Release</div>
             </div>
         </div>

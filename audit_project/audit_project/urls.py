@@ -31,6 +31,8 @@ urlpatterns = [
     path('dp-sum-data/', dp_sum_data, name='dp_sum_data'),
     path('pca-data/', pca_view, name='pca_data'),
     path('simulate-attack/', simulate_attack_view, name='simulate_attack'),
+    path('synthetic-data/', synthetic_data_view, name='generate_synthetic_data'),
+    path('data-release/', publish_data_release_view, name='publish_data_release'),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
