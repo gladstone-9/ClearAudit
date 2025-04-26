@@ -4,3 +4,4 @@ venv
 */media/uploads/*
 dp.sqlite3
 examples/
+dp.sqlite3

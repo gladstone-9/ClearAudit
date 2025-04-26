@@ -22,6 +22,12 @@ from audit_app.views import *
 from django.conf import settings
 from django.conf.urls.static import static
 
+
+from django.views.generic.base import RedirectView
+
+favicon_view = RedirectView.as_view(url='/static/favicon.ico', permanent=True)
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("", PortalUploadView.as_view(), name="portal_upload"),
@@ -34,5 +40,3 @@ urlpatterns = [
     path('synthetic-data/', synthetic_data_view, name='generate_synthetic_data'),
     path('data-release/', publish_data_release_view, name='publish_data_release'),
 ]
-
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
