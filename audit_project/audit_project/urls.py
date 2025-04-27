@@ -39,4 +39,7 @@ urlpatterns = [
     path('simulate-attack/', simulate_attack_view, name='simulate_attack'),
     path('synthetic-data/', synthetic_data_view, name='generate_synthetic_data'),
     path('data-release/', publish_data_release_view, name='publish_data_release'),
+    path('download-file/', download_file, name='download_file'),
+    path('create-synthetic-data/', create_synthetic_data, name='create_synthetic_data'),
+    path('publish-stats/', publish_stats, name='publish_stats'),
 ]

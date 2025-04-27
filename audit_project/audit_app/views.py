@@ -2,7 +2,11 @@ import csv
 import io
 import numpy as np
 import pandas as pd
+import os
+import polars as pl
+import opendp.prelude as dp
 
+from django.http import FileResponse
 from django.views import generic
 from django.http import JsonResponse
 from django.http import HttpResponse
@@ -58,11 +62,11 @@ class ExploreStatisticsView(View):
 def range_slider_view(request):
     try:
         epsilon = float(request.GET.get('epsilon', 1.0))
-        contributions = int(request.GET.get('contributions', 36))
+        # contributions = int(request.GET.get('contributions', 36))
 
         return JsonResponse({
             'epsilon': epsilon,
-            'contributions': contributions
+            # 'contributions': contributions
         })
 
     except ValueError as e:
@@ -72,29 +76,17 @@ def range_slider_view(request):
 # DP Count
 def dp_histogram_data(request):
     try:
+        # Fields
         epsilon = float(request.GET.get('epsilon', 1.0))
-        contributions = int(request.GET.get('contributions', 36))
-
-        if epsilon <= 0:
-            return JsonResponse({'error': 'Epsilon must be greater than 0.'}, status=400)
-
-        # Get actual count (# of records)
         file_id = request.GET.get('file_id')
-        uploaded_file = get_object_or_404(UploadedFile, id=file_id)
-
-        # Read CSV content from saved file
-        file = uploaded_file.file
-        file.open(mode='r')  # Open in text mode
-        text_data = file.read()  # This is already a string
-        file.close()
-
-        io_string = io.StringIO(text_data)
-        reader = csv.reader(io_string)
-        csv_data = list(reader)
-
-        # Assuming the CSV has headers and we count the rows, excluding the header
-        actual_count = len(csv_data) - 1  # Subtract 1 for the header row
-                
+        label_column = request.GET.get('label_column')
+        
+        # True Stats
+        df = get_data_frame(file_id)
+        contributions = df.select(pl.col(label_column).n_unique()).collect().item()       # Unique records in col
+        actual_count = df.select(pl.col(label_column).count()).collect().item()
+        
+        # DP Count Simulation
         scale = contributions / epsilon
         dp_counts = actual_count + np.random.laplace(loc=0, scale=scale, size=5000)
 
@@ -103,80 +95,52 @@ def dp_histogram_data(request):
             'actual_count': actual_count
         })
 
-    except ValueError:
-        return JsonResponse({'error': 'Invalid numeric input.'}, status=400)
-
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
     
 # DP sum
 def dp_sum_data(request):
     try:
+        # Fields
         epsilon = float(request.GET.get('epsilon', 1.0))
-        contributions = int(request.GET.get('contributions', 36))
-        max_bound = float(request.GET.get('max_bound', 100))
         target_column = request.GET.get('target_column')
         file_id = request.GET.get('file_id')
+        label_column = request.GET.get('label_column')
+        
+        # True Stats
+        df = get_data_frame(file_id)
+        contributions = df.select(pl.col(label_column).n_unique()).collect().item()       # Unique records in col
+        actual_sum = df.select(pl.col(target_column).sum()).collect().item()
 
-        if not target_column:
-            return JsonResponse({'error': 'Target column is required.'}, status=400)
-        if epsilon <= 0:
-            return JsonResponse({'error': 'Epsilon must be greater than 0.'}, status=400)
-
-        uploaded_file = get_object_or_404(UploadedFile, id=file_id)
-
-        # Read file
-        file = uploaded_file.file
-        file.open(mode='r')
-        text_data = file.read()
-        file.close()
-
-        io_string = io.StringIO(text_data)
-        reader = csv.DictReader(io_string)
-        values_clipped = []
-        values = []
-
-        for row in reader:
-            try:
-                val = float(row[target_column])
-                clipped = min(val, max_bound)
-                values.append(val)
-                values_clipped.append(clipped)
-            except (ValueError, KeyError):
-                continue  # Skip rows with missing or non-numeric data
-
-        actual_sum = sum(values)
+        # DP Sum Simulation
         scale = contributions / epsilon
         dp_sums = actual_sum + np.random.laplace(loc=0, scale=scale, size=5000)
-        dp_sums = dp_sums[dp_sums <= max_bound]    # Enforce max bound
 
         return JsonResponse({
             'dp_sums': dp_sums.tolist(),
             'actual_sum': actual_sum
         })
 
-    except ValueError:
-        return JsonResponse({'error': 'Invalid numeric input.'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
 def simulate_attack_view(request):
-    # Get the parameters from the URL
+    # Fields
     epsilon = request.GET.get('epsilon')
-    contributions = request.GET.get('contributions')
-    max_bound = request.GET.get('max_bound')
     target_column = request.GET.get('target_column')
     file_id = request.GET.get('file_id')
+    label_column = request.GET.get('label_column')
+    
+    # True Stats
+    df = get_data_frame(file_id)
+    contributions = df.select(pl.col(label_column).n_unique()).collect().item()       # Unique records in col
 
-    # Process the parameters (add any processing logic you need here)
-
-    # Return the response, either rendering a template or returning data (e.g., JSON)
     return render(request, 'simulate_attacks.html', {
         'epsilon': epsilon,
         'contributions': contributions,
-        'max_bound': max_bound,
         'target_column': target_column,
         'file_id': file_id,
+        'label_column': label_column,
     })
 
 from django.http import JsonResponse
@@ -187,38 +151,27 @@ from diffprivlib.models import PCA as dpPCA
 # from your_dp_library import dpPCA  # import your private PCA class
 
 def pca_view(request):
-    epsilon = float(request.GET.get('epsilon', 1.0))
+    epsilon = float(request.GET.get('epsilon'))
     file_id = request.GET.get('file_id')
-    target_column = request.GET.get('column')
+    label_column = request.GET.get('label_column')
     
-    # Validate inputs
-    if not target_column:
-        return JsonResponse({'error': 'Target column is required.'}, status=400)
-    if epsilon <= 0:
-        return JsonResponse({'error': 'Epsilon must be greater than 0.'}, status=400)
-
-    # Get uploaded file
-    uploaded_file = get_object_or_404(UploadedFile, id=file_id)
     
     # Read and parse CSV
-    try:
-        df = pd.read_csv(uploaded_file.file)
-    except Exception as e:
-        return JsonResponse({'error': f'Error reading CSV file: {str(e)}'}, status=400)
+    df = get_non_lazy_data_frame(file_id)
 
-    # Check target column exists
-    if target_column not in df.columns:
-        return JsonResponse({'error': f'Column "{target_column}" not found in file.'}, status=400)
+    # Separate features and label
+    # y = df[label_column]
+    # X = df.drop(label_column)
+    
+    y = df[label_column]
+    X = df.drop(columns=[label_column])
 
-    # Separate features and target
-    y = df[target_column]
-    X = df.drop(columns=[target_column])
 
     # Convert features to numeric and clean data
     try:
         # Convert all features to numeric
         X = X.apply(pd.to_numeric, errors='coerce')
-        
+                
         # Remove columns with all missing values
         X = X.dropna(axis=1, how='all')
         
@@ -261,39 +214,129 @@ def pca_view(request):
 
 
 def synthetic_data_view(request):
-    # Get the parameters from the URL
+    # Fields
     epsilon = request.GET.get('epsilon')
     contributions = request.GET.get('contributions')
-    max_bound = request.GET.get('max_bound')
     target_column = request.GET.get('target_column')
     file_id = request.GET.get('file_id')
+    label_column = request.GET.get('label_column')
 
-    # Process the parameters (add any processing logic you need here)
-
-    # Return the response, either rendering a template or returning data (e.g., JSON)
     return render(request, 'generate_synthetic_data.html', {
         'epsilon': epsilon,
         'contributions': contributions,
-        'max_bound': max_bound,
         'target_column': target_column,
         'file_id': file_id,
+        'label_column': label_column,
     })
     
 def publish_data_release_view(request):
-        # Get the parameters from the URL
+    # Fields
     epsilon = request.GET.get('epsilon')
     contributions = request.GET.get('contributions')
-    max_bound = request.GET.get('max_bound')
     target_column = request.GET.get('target_column')
     file_id = request.GET.get('file_id')
+    label_column = request.GET.get('label_column')
 
-    # Process the parameters (add any processing logic you need here)
-
-    # Return the response, either rendering a template or returning data (e.g., JSON)
     return render(request, 'publish_data_release.html', {
         'epsilon': epsilon,
         'contributions': contributions,
-        'max_bound': max_bound,
         'target_column': target_column,
         'file_id': file_id,
+        'label_column': label_column,
     })
+    
+def download_file(request):
+    file_id = request.GET.get('file_id')
+
+    file_id = int(file_id)
+
+    # Get the uploaded file object from the database
+    uploaded_file = get_object_or_404(UploadedFile, id=file_id)
+    
+    # Build the real file path (assuming UploadedFile has a 'file' field or 'filepath' field)
+    filepath = uploaded_file.file.path  # Assuming you have a 'file' field (models.FileField or models.FilePathField)
+
+    # Set the filename for downloading
+    filename = os.path.basename(filepath)
+
+    # Return the file as a response
+    response = FileResponse(open(filepath, 'rb'), as_attachment=True, filename=filename)
+    return response
+
+def create_synthetic_data(request):
+    pass
+
+
+def publish_stats(request):
+    # Fields
+    epsilon = float(request.GET.get('epsilon'))
+    target_column = request.GET.get('target_column')
+    file_id = int(request.GET.get('file_id'))
+    label_column = request.GET.get('label_column')
+        
+    NUM_QUERIES = 2 # Number of planned general statistics (may change)
+
+    # True Stats
+    df = get_data_frame(file_id)
+    contributions = df.select(pl.col(label_column).n_unique()).collect().item()     # Change this to label column
+    true_count = df.select(pl.col(target_column).count()).collect().item()
+    true_sum = df.select(pl.col(target_column).sum()).collect().item()
+    true_mean = df.select(pl.col(target_column).mean()).collect().item()
+    
+    dp.enable_features("contrib")
+    context = dp.Context.compositor(
+        data=df,
+        privacy_unit=dp.unit_of(contributions=contributions),     # len Unique Rows in label column  
+        privacy_loss=dp.loss_of(epsilon=epsilon),
+        split_evenly_over=NUM_QUERIES,
+        margins=[
+            dp.polars.Margin(
+                max_partition_length=true_count # the biggest partition
+            ),
+        ],
+    )
+    
+    # DP Count
+    query_count = context.query().select(dp.len())
+    query_count_val = query_count.release().collect().item()
+    
+    # DP Sum (of target column)       
+    max_val = df.select(pl.col(target_column).max()).collect().item()
+    min_val = df.select(pl.col(target_column).min()).collect().item()
+    
+    query_sum = (
+        context.query()
+        # Compute the DP sum for the target column
+        .select(pl.col(target_column).cast(int).fill_null(true_mean).dp.sum(bounds=(min_val, max_val)))
+    )
+    query_sum_val = query_sum.release().collect().item()
+    
+    # Mean
+    query_mean_val = query_sum_val / query_count_val
+    
+    return render(request, 'publish_data_release.html', {
+        'epsilon': epsilon,
+        'contributions': contributions,
+        'target_column': target_column,
+        'label_column': label_column,
+        'file_id': file_id,
+        'query_count': f"{query_count_val:,}",
+        'query_sum': f"{query_sum_val:,.3f}",
+        'query_mean': f"{query_mean_val:,.3f}",
+        'true_count': f"{true_count:,}",
+        'true_mean': f"{true_mean:,.3f}",
+        'true_sum': f"{true_sum:,.3f}",
+    })    
+
+def get_data_frame(file_id):
+    uploaded_file = get_object_or_404(UploadedFile, id=file_id)
+    filepath = uploaded_file.file.path 
+    data = pl.scan_csv(filepath, ignore_errors=True)
+    return data
+
+def get_non_lazy_data_frame(file_id):
+    uploaded_file = get_object_or_404(UploadedFile, id=file_id)
+    # filepath = uploaded_file.file.path 
+    # data = pl.read_csv(filepath, ignore_errors=True)   # <-- CHANGED HERE
+    data = pd.read_csv(uploaded_file.file)
+    return data
