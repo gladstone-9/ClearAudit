@@ -33,22 +33,76 @@
         </div>
     </div>
 
-    <!-- Create Synthetic Data and Run ML Simulations -->
-    <form method="get" action="{% url 'create_synthetic_data' %}">
-        <input type="hidden" name="file_id" value="{{ file_id }}">
-        <button type="submit" class="btn btn-primary">Create Synthetic Data</button>
-    </form>
+    <div class="max-w-6xl mx-auto p-6">
+
+        <div class="text-center my-4">
+            <!-- Create Synthetic Data Form -->
+            <form method="get" action="{% url 'create_synthetic_data' %}" class="d-inline-block">
+                <input type="hidden" name="file_id" value="{{ file_id }}">
+                <input type="hidden" name="target_column" value="{{ target_column }}">
+                <input type="hidden" name="label_column" value="{{ label_column }}">
+                <input type="hidden" name="epsilon" value="{{ epsilon }}">
+                <button type="submit" class="btn btn-primary btn-lg shadow-sm">
+                    Generate
+                </button>
+            </form>
+        </div>
+
+        <!-- Divider
+        <hr class="my-5"> -->
+
+        <!-- Data Preview Table -->
+        {% if csv_data %}
+        <div class="container mt-5">
+            <div class="card shadow rounded-4 p-4">
+                <h2 class="text-center mb-4">Synthetic Data Preview</h2>
+
+                <!-- Make this div scrollable -->
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-hover align-middle text-center">
+                        <thead class="table-light">
+                            <tr>
+                                {% for cell in csv_data.0 %}
+                                <th scope="col">{{ cell }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in csv_data|slice:":100" %}
+                            <tr>
+                                {% for cell in row %}
+                                <td>{{ cell }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center my-5">
+            <p class="text-muted fs-5">Generated data display...</p>
+        </div>
+        {% endif %}
+
+        <!-- Divider -->
+        <hr class="my-5">
+
+        <!-- Download Synthetic Data Button -->
+        <div class="text-center my-4">
+            <form method="get" action="{% url 'download_file' %}" class="d-inline-block">
+                <input type="hidden" name="synthetic_filename" value="{{ synthetic_filename }}">
+                <button type="submit" class="btn btn-success btn-lg shadow-sm">
+                    Download
+                </button>
+            </form>
+        </div>
+    </div>
 
     <!-- Divider -->
-    <hr
-        style="border: 0; height: 2px; background: linear-gradient(to right, #f0f0f0, #e0e0e0, #f0f0f0); margin: 30px 0;">
-
-    <!-- Download Synthetic Data Button -->
-    <form method="get" action="{% url 'download_file' %}">
-        <input type="hidden" name="file_id" value="{{ file_id }}"> <!--Change this to the synthetic data-->
-        <button type="submit" class="btn btn-primary">Download Synthetic Data</button>
-    </form>
-
+    <hr class="my-5">
 
 </body>
 

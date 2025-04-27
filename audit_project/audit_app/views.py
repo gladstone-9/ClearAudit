@@ -160,12 +160,9 @@ def pca_view(request):
     df = get_non_lazy_data_frame(file_id)
 
     # Separate features and label
-    # y = df[label_column]
-    # X = df.drop(label_column)
-    
     y = df[label_column]
-    X = df.drop(columns=[label_column])
-
+    # X = df.drop(columns=[label_column])
+    X = df.drop(label_column, axis=1)
 
     # Convert features to numeric and clean data
     try:
@@ -190,6 +187,7 @@ def pca_view(request):
     # Standardize features
     try:
         X_scaled = StandardScaler().fit_transform(X)
+        
     except Exception as e:
         return JsonResponse({'error': f'Feature scaling error: {str(e)}'}, status=400)
 
@@ -198,7 +196,7 @@ def pca_view(request):
         # Non-private PCA
         non_private_pca = PCA(n_components=2)
         X_np = non_private_pca.fit_transform(X_scaled)
-
+        
         # Private PCA
         private_pca = dpPCA(epsilon=epsilon, n_components=2)
         X_p = private_pca.fit(X_scaled).transform(X_scaled)
@@ -244,28 +242,64 @@ def publish_data_release_view(request):
         'file_id': file_id,
         'label_column': label_column,
     })
-    
+
+from django.http import FileResponse, Http404
 def download_file(request):
-    file_id = request.GET.get('file_id')
-
-    file_id = int(file_id)
-
-    # Get the uploaded file object from the database
-    uploaded_file = get_object_or_404(UploadedFile, id=file_id)
+    filename = request.GET.get('synthetic_filename')
     
-    # Build the real file path (assuming UploadedFile has a 'file' field or 'filepath' field)
-    filepath = uploaded_file.file.path  # Assuming you have a 'file' field (models.FileField or models.FilePathField)
+    abs_base_dir = os.sep.join(os.path.abspath(__file__).split(os.sep)[:-3])
+    synthetic_dir = os.path.join(abs_base_dir, "audit_project/media/uploads/synthetic_files")
+    file_path = os.path.join(synthetic_dir, filename)
 
-    # Set the filename for downloading
-    filename = os.path.basename(filepath)
+    if not os.path.exists(file_path):
+        raise Http404("Synthetic file not found.")
 
-    # Return the file as a response
-    response = FileResponse(open(filepath, 'rb'), as_attachment=True, filename=filename)
-    return response
+    return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=filename)
 
+import uuid
 def create_synthetic_data(request):
-    pass
+    epsilon = float(request.GET.get('epsilon'))
+    file_id = request.GET.get('file_id')
+    target_column = request.GET.get('target_column')
+    label_column = request.GET.get('label_column')
+        
+        
+    df = get_non_lazy_data_frame(file_id)
+    
+    synthetic_df = generate_synthetic_data_new_environment(df, epsilon)
+    
+    # Temp Save Data
+    unique_filename = f"synthetic_{uuid.uuid4().hex}.csv"
+    abs_base_dir = os.sep.join(os.path.abspath(__file__).split(os.sep)[:-3])
+    synthetic_dir = os.path.join(abs_base_dir, "audit_project/media/uploads/synthetic_files")
+    os.makedirs(synthetic_dir, exist_ok=True)
+    
+    synthetic_path = os.path.join(synthetic_dir, unique_filename)
+    synthetic_df.to_csv(synthetic_path, index=False)
+    
+    # Store before this
+    synthetic_df = synthetic_df.round(3)
+    
+    # Convert synthetic_df to CSV data
+    csv_buffer = io.StringIO()
+    synthetic_df.to_csv(csv_buffer, index=False)
+    csv_buffer.seek(0)  # Move to start
+    
+    reader = csv.reader(csv_buffer)
+    csv_data = list(reader)
 
+    columns = csv_data[0] if csv_data else []
+
+    return render(request, "generate_synthetic_data.html", {
+        "csv_data": csv_data,
+        "columns": columns,
+        'epsilon': epsilon,
+        'target_column': target_column,
+        'file_id': file_id,
+        'label_column': label_column,
+        "synthetic_filename": unique_filename,
+    })
+    
 
 def publish_stats(request):
     # Fields
@@ -282,6 +316,8 @@ def publish_stats(request):
     true_count = df.select(pl.col(target_column).count()).collect().item()
     true_sum = df.select(pl.col(target_column).sum()).collect().item()
     true_mean = df.select(pl.col(target_column).mean()).collect().item()
+    
+    print(type(df))
     
     dp.enable_features("contrib")
     context = dp.Context.compositor(
@@ -336,7 +372,43 @@ def get_data_frame(file_id):
 
 def get_non_lazy_data_frame(file_id):
     uploaded_file = get_object_or_404(UploadedFile, id=file_id)
-    # filepath = uploaded_file.file.path 
-    # data = pl.read_csv(filepath, ignore_errors=True)   # <-- CHANGED HERE
     data = pd.read_csv(uploaded_file.file)
     return data
+
+import subprocess
+import pickle
+import tempfile
+from pathlib import Path
+# Generate Synthetic Data with a older version of opendp (in a new environment)
+def generate_synthetic_data_new_environment(df, needed_epsilon):
+    # subprocess.run(["source", "synthetic_data_venv/bin/activate", "&&", "python", "synthetic_data.py"])
+    
+    # Save the input DataFrame to a temporary file
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_input:
+        input_path = tmp_input.name
+        with open(input_path, "wb") as f:
+            pickle.dump(df, f)
+
+    # Prepare output temp file
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_output:
+        output_path = tmp_output.name
+    
+    # Set paths
+    abs_base_dir = os.sep.join(os.path.abspath(__file__).split(os.sep)[:-3])
+    other_venv_python = os.path.join(abs_base_dir, "synthetic_data_venv/bin/python")
+    other_script = os.path.join(abs_base_dir, "audit_project/audit_app/synthetic_data.py")
+    
+    # Run the subprocess
+    subprocess.run([
+        other_venv_python,
+        other_script,  # Path to your helper script
+        input_path,
+        str(needed_epsilon),
+        output_path
+    ], check=True)
+    
+    # Load the resulting synthetic DataFrame
+    with open(output_path, "rb") as f:
+        synthetic_df = pickle.load(f)
+        
+    return synthetic_df
