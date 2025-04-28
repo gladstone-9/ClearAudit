@@ -320,7 +320,7 @@ from sklearn.ensemble import RandomForestClassifier
 # model can be one of ["linreg", "logreg", "randomforest"]
 # the model decides if it is classification or regression
 def draw_tradeoff(data, label_col, epsilon, model="linreg"):
-    epsilons = np.logspace(1, 4, num=3, base=10)       # ie. 10^1 to 20^4, change num for more epsilons
+    epsilons = np.logspace(0, 1, num=3, base=10)       # ie. 10^1 to 20^4, change num for more epsilons
     baseline = None
     accuracy_dp = []
     accuracy_synth = []
@@ -387,7 +387,7 @@ def create_plotly_figure(epsilons, baseline, accuracy_synth, accuracy_dp, title=
         x=epsilons,
         y=accuracy_dp,
         mode='lines+markers',
-        name='Differentially private linear regression',
+        name='Differentially private logistic regression',
         line=dict(width=3),
     ))
 
