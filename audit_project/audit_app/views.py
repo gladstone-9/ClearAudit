@@ -5,6 +5,8 @@ import pandas as pd
 import os
 import polars as pl
 import opendp.prelude as dp
+import plotly.graph_objects as go
+import plotly.io as pio
 
 from django.http import FileResponse
 from django.views import generic
@@ -277,6 +279,11 @@ def create_synthetic_data(request):
     synthetic_path = os.path.join(synthetic_dir, unique_filename)
     synthetic_df.to_csv(synthetic_path, index=False)
     
+    # Model Testing
+    epsilons, baseline, accuracy_synth, accuracy_dp = draw_tradeoff(df, label_column, epsilon, "logreg")
+    
+    fig_json = create_plotly_figure(epsilons, baseline, accuracy_synth, accuracy_dp, title=f"Classification Accuaracy of {label_column}")
+    
     # Store before this
     synthetic_df = synthetic_df.round(3)
     
@@ -298,8 +305,128 @@ def create_synthetic_data(request):
         'file_id': file_id,
         'label_column': label_column,
         "synthetic_filename": unique_filename,
+        "fig_json": fig_json,
     })
     
+import sklearn.linear_model as lm
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+from diffprivlib.models import LinearRegression as private_linearRegression
+from diffprivlib.models import LogisticRegression as private_LogisticRegression
+from sklearn.linear_model import LogisticRegression
+from diffprivlib.models import RandomForestClassifier as private_RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier
+# model can be one of ["linreg", "logreg", "randomforest"]
+# the model decides if it is classification or regression
+def draw_tradeoff(data, label_col, epsilon, model="linreg"):
+    epsilons = np.logspace(1, 4, num=3, base=10)       # ie. 10^1 to 20^4, change num for more epsilons
+    baseline = None
+    accuracy_dp = []
+    accuracy_synth = []
+
+    dataX = data.drop(label_col, axis=1)
+    dataY = data[label_col]
+    #dataX = StandardScaler().fit_transform(dataX)
+    X_train, X_test, y_train, y_test = train_test_split(dataX, dataY, test_size=0.2, random_state=42)
+
+
+    if model == "linreg":
+        reg_model = lm.LinearRegression()
+        dp_model = private_linearRegression
+    elif model == "logreg":
+        reg_model = LogisticRegression()
+        dp_model = private_LogisticRegression
+    elif model == "randomforest":
+        reg_model = RandomForestClassifier()
+        dp_model = private_RandomForestClassifier
+    else:
+        raise Exception("Invalid model")
+
+    reg_model.fit(X_train, y_train)
+    baseline = reg_model.score(X_test, y_test)
+    print(f"Baseline: {baseline}")
+
+    for epsilon in epsilons:
+        dp_model_temp = dp_model(epsilon=epsilon)
+        dp_model_temp.fit(X_train, y_train)
+
+        accuracy_dp.append(dp_model_temp.score(X_test, y_test))
+
+        try:
+            # synth = Synthesizer.create('mwem', epsilon=epsilon, split_factor=5) # we need the split factor so we don't run out of memory!!
+            # synth = Synthesizer.create('mst', epsilon=epsilon)
+            # synth_train = synth.fit_sample(X_train, preprocessor_eps=2.0) #make this a slider
+            synth_train = generate_synthetic_data_new_environment(X_train, epsilon)
+            print("train", X_train.info())
+            print("synth", synth_train.info())
+            reg_model.fit(synth_train, y_train)
+
+            accuracy_synth.append(reg_model.score(X_test, y_test))
+        except Exception as error:
+            print("failed because", error)
+            accuracy_synth.append(0.0)
+        #break
+        
+    return epsilons, baseline, accuracy_synth, accuracy_dp
+
+    # plt.semilogx(epsilons, accuracy_dp, label="Differentially private linear regression", zorder=10)
+    # plt.semilogx(epsilons, accuracy_synth, label="Synthetic data", zorder=5)
+    # plt.semilogx(epsilons, baseline * np.ones_like(epsilons), dashes=[2,2], label="Non-private baseline", zorder=5)
+    # plt.xlabel("epsilon")
+    # plt.ylabel("loss")
+    # plt.ylim(-3*abs(baseline), 3*abs(baseline))
+    # plt.legend()    
+
+def create_plotly_figure(epsilons, baseline, accuracy_synth, accuracy_dp, title=""):
+    # Create the Plotly figure
+    fig = go.Figure()
+
+    # DP Linear Regression Accuracy
+    fig.add_trace(go.Scatter(
+        x=epsilons,
+        y=accuracy_dp,
+        mode='lines+markers',
+        name='Differentially private linear regression',
+        line=dict(width=3),
+    ))
+
+    # Synthetic Data Accuracy
+    fig.add_trace(go.Scatter(
+        x=epsilons,
+        y=accuracy_synth,
+        mode='lines+markers',
+        name='Synthetic data',
+        line=dict(width=2, dash='solid'),
+    ))
+
+    # Non-private Baseline (horizontal dashed line)
+    fig.add_trace(go.Scatter(
+        x=epsilons,
+        y=[baseline] * len(epsilons),
+        mode='lines',
+        name='Non-private baseline',
+        line=dict(dash='dash', width=2),
+    ))
+
+    # Layout Settings
+    fig.update_layout(
+        title=title,
+        xaxis=dict(
+            title='Epsilon',
+            type='log',
+            tickvals=epsilons,  # <-- force ticks only at your points
+            ticktext=[str(int(e)) for e in epsilons],  # <-- make labels exactly 10, 100, 1000, 10000
+        ),
+        yaxis=dict(title='Loss', range=[-3*abs(baseline), 3*abs(baseline)]),
+        legend=dict(title="Models"),
+        template='plotly_white',
+        margin=dict(l=40, r=40, t=40, b=40),
+    )
+
+    # Serialize figure to JSON
+    fig_json = pio.to_json(fig)
+    return fig_json
 
 def publish_stats(request):
     # Fields
